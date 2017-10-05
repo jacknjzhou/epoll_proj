@@ -6,6 +6,11 @@ import select
 import Queue
 import struct
 
+"""
+@function:
+"""
+INFO_STRUCT = '128s1I128s'
+
 #创建socket对象
 serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 #设置IP地址复用
@@ -86,9 +91,9 @@ while True:
             #接收数据
             try:
                 if not filename_queues.has_key(socket):
-                    FILEINFO_SIZE = struct.calcsize('128s1I')
+                    FILEINFO_SIZE = struct.calcsize(INFO_STRUCT)
                     data = socket.recv(FILEINFO_SIZE)
-                    filename,filesize = struct.unpack('128s1I',data)
+                    filename,filesize,destpath = struct.unpack(INFO_STRUCT,data)
                     if filename:
                         filename_queues[socket]=open(filename.strip('\00'),'wb')
                     print "first data"
