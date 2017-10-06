@@ -14,7 +14,7 @@ import getopt
 #add local info file
 import confs
 
-conf_obj = confs.Config('server.ini')
+conf_obj = confs.Config('client.ini')
 
 ip = conf_obj.get("SERVER","server.ip","127.0.0.1")
 port = conf_obj.get("SERVER","server.port",18888)
