@@ -1,10 +1,24 @@
 #!/usr/bin/env python
 #-*- coding:utf-8 -*-
+import sys
 import time
 import socket
 import select
 import Queue
 import struct
+import os
+import traceback
+#add local info file
+import confs
+
+conf_obj = confs.Config('server.ini')
+
+ip = conf_obj.get("SERVER","server.ip","127.0.0.1")
+port = conf_obj.get("SERVER","server.port",18888)
+if not isinstance(port,int):
+  port = int(port)
+
+print "ip:",ip," port:",port
 
 """
 @function:
@@ -16,7 +30,7 @@ serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 #设置IP地址复用
 serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 #ip地址和端口号
-server_address = ("127.0.0.1", 18888)
+server_address = (ip, port)
 #绑定IP地址
 serversocket.bind(server_address)
 #监听，并设置最大连接数
@@ -37,7 +51,7 @@ fd_to_socket = {serversocket.fileno():serversocket}
 print "fd socket:",fd_to_socket
 
 #buffer size define
-BUFSIZE = 1024
+BUFSIZE = 1024*4
 filename_queues = {}
 while True:
     # time.sleep(1)
@@ -70,8 +84,9 @@ while True:
             
         #关闭事件
         elif event & select.EPOLLHUP:
-            print 'client close'
+            print '连接关闭:',fd
             try:
+                print "清理连接信息..."
                 #在epoll中注销客户端的文件句柄
                 epoll.unregister(fd)
                 #关闭客户端的文件句柄
@@ -94,10 +109,32 @@ while True:
                     FILEINFO_SIZE = struct.calcsize(INFO_STRUCT)
                     data = socket.recv(FILEINFO_SIZE)
                     filename,filesize,destpath = struct.unpack(INFO_STRUCT,data)
-                    if filename:
-                        filename_queues[socket]=open(filename.strip('\00'),'wb')
-                    print "first data"
-                    print filename_queues[socket]
+                    print filename,":",len(filename)
+                    print destpath,":",len(destpath)
+                    try:
+                        if filename:
+                            if destpath and destpath !='.':
+                                filename_queues[socket] = open(os.path.join(destpath.strip('\00'),filename.strip('\00')),'wb')
+                            else:
+                                filename_queues[socket]=open(filename.strip('\00'),'wb')
+                        # print "first data"
+                        print "ready upload file:",filename," to destpath:",destpath
+                    except IOError as e:
+                        print "dest path can not write or path not exist,replace destpath to /tmp."
+                        destpath = '/tmp'
+                        filename_queues[socket] = open(os.path.join(destpath.strip('\00'),filename.strip('\00')),'wb')
+
+                    except Exception as e:
+                        print "occure fail."
+                        print e
+                        try:
+                            epoll.unregister(fd)
+                            fd_to_socket[fd].close()
+                            del fd_to_socket[fd]
+                        except:
+                            print "clean info error"
+                            pass
+                        #sys.exit(1)
                     # print len(filename_queues[socket])
                 else:
                   pass
@@ -113,7 +150,7 @@ while True:
                 try:
                     data = socket.recv(BUFSIZE)
                     if data:
-                        print "收到数据长度：" , len(data) , "客户端：" , socket.getpeername()
+                        print "收到数据长度：" , len(data) , "来自客户端：" , socket.getpeername()
                         #将数据放入对应客户端的字典
                         
                         #filename_queues[socket].write(data)
