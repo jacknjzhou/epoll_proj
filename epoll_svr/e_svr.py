@@ -108,9 +108,10 @@ while True:
                 if not filename_queues.has_key(socket):
                     FILEINFO_SIZE = struct.calcsize(INFO_STRUCT)
                     data = socket.recv(FILEINFO_SIZE)
-                    filename,filesize,destpath = struct.unpack(INFO_STRUCT,data)
+                    filename,filesize,destpath,md5info = struct.unpack(INFO_STRUCT,data)
                     print filename,":",len(filename)
                     print destpath,":",len(destpath)
+                    print "md5info:",md5info
                     try:
                         if filename:
                             if destpath and destpath !='.':

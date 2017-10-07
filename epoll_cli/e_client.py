@@ -5,14 +5,16 @@ import socket
 import os
 import sys
 import getopt
+import traceback
 """
 @function:采用tcp/epoll方式进行文件上传,并可以指定文件上传路径,指定目标存储路径.
 @此处采用struct方式进行序列化编码,然后再svr端进行解码处理
 
-@次序为 filename,filesize,file_destpath
+@次序为 filename,filesize,file_destpath,md5info
 """
 #add local info file
 import confs
+import utils
 
 conf_obj = confs.Config('client.ini')
 
@@ -23,8 +25,8 @@ if not isinstance(port,int):
 
 print "ip:",ip," port:",port
 
-
-INFO_STRUCT = '128s1I128s'
+#filename/filesize/file_destpath/md5info
+INFO_STRUCT = '128s1I128s32s'
 
 #创建客户端socket对象
 clientsocket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
@@ -43,7 +45,7 @@ if not r_argv:
     print "输入的参数为空."
     sys.exit(1)
 try:
-    opts, args = getopt.getopt(r_argv,"hu:p:",["uploadfile","destpath"])
+    opts, args = getopt.getopt(r_argv,"hu:p:m:",["uploadfile","destpath","md5info"])
     print "***"*10
     print opts
     print "***"*10
@@ -57,6 +59,7 @@ except getopt.GetoptError as e:
 
 filename = None
 dest_path = None
+md5info = None
 
 for opt,arg in opts:
     if opt == '-h':
@@ -69,8 +72,12 @@ for opt,arg in opts:
     if opt in ('-p','--destpath'):
         dest_path = arg
 
+    if opt in ('-m','--md5info'):
+        md5info = arg
+
 print "filename:",filename
 print "destpath:",dest_path
+print "md5info:",md5info
 
 #输入数据
 # filename = raw_input('please input upload filename:')
@@ -84,12 +91,15 @@ else:
 if dest_path is None:
     dest_path ="/tmp"
 
+if md5info is None:
+    md5info = utils.sum_md5(filename)
+
 base_filename = os.path.basename(filename)
 print "basename:",base_filename
 #retry connection
 clientsocket.connect(server_address)
 
-fhead = struct.pack(INFO_STRUCT,base_filename,os.stat(filename).st_size,dest_path)
+fhead = struct.pack(INFO_STRUCT,base_filename,os.stat(filename).st_size,dest_path,md5info)
 clientsocket.send(fhead)
 #print type(fhead)
 
